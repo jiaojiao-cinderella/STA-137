@@ -1,0 +1,363 @@
+---
+title: "Final Project"
+author: "Yajiao Liu"
+date: "2025-06-06"
+output:
+  pdf_document: default
+  html_document: default
+---
+<div style="font-family: Arial; font-weight: bold; font-size: 24px;">
+1.Introduction
+</div>
+
+The Central African Republic (CAR) is a sparsely populated, landlocked country at the heart of the African continent.Despite being endowed with abundant natural resources (470 mining sites, with oil, gold, and diamonds as the primary resources), it remains one of the poorest and most fragile countries in the world.It exports natural resources (gold, diamonds, timber but must import almost everything else, especially manufactured goods and fuel.In 2023,the  total estimate GDP $3.03billion, and its imports accounts for 14.44% and the imports 29.04%(https://www.theglobaleconomy.com/).
+
+In this report ,we will incorporate various statistical methods to analysis the Central African Republic Exports time series data from 1960 to 2017.This data set contains 58 observations and 9 variables. However,we are only interested the Import and GDP variables. Analyzing these two variables, we can see the relationship between GDP and Imports,and how the data can make a predict for the future economy of The Central African Republic.
+
+<div style="font-family: Arial; font-weight: bold; font-size: 24px;">
+2.Exploratory Data Analysis
+</div> 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+```
+
+
+```{r,include=FALSE}
+load("C:/Users/Gilli/OneDrive/Desktop/STA137/finalproject.Rdata")
+sapply(finalPro_data,class)
+```
+Before we do the further process,we want to to get the basic information about the two time series and the overview of the data.We do some statistical analysis,the results are displayed in the Appendix. From the picture of histogram and box plot,we can see that there is no missing value and outliers in GDP and Imports.The value distribution is nearly normal.Therefore, we can make  the further study.
+
+```{r,include=FALSE}
+data_CAR <- finalPro_data[, c("Year", "GDP", "Imports")]
+sum(is.na(data_CAR))
+summary(data_CAR)
+```
+```{r,include=FALSE}
+par(mfrow = c(1, 2))
+hist(data_CAR$GDP,main = "GDP",xlab = 'GDP')
+hist(data_CAR$Imports,main="Imports",xlab = 'Imports')
+```
+```{r,include=FALSE}
+par(mfrow = c(1, 2))
+boxplot(data_CAR$GDP, main="GDP")
+boxplot(data_CAR$Imports,main="Imports")
+```
+
+
+```{r,fig.pos="H"}
+par(mfrow = c(1, 2))
+plot(data_CAR$Year, data_CAR$GDP, type="o",main="GDP from 1960 to 2017",xlab = 'Time', ylab="GDP")
+plot(data_CAR$Year,data_CAR$Imports,type="o",main="Imports from 1960 to 2017",xlab = 'Time', ylab="Imports")
+```
+<div>
+From the picture of GDP,we we can see that there is a trend as the time changes, form 1960 to 2017. The GDP is increasing even though there is some drops, the whole trend is increasing so the data of GDP is non-stationary.
+
+From the Imports plot, there appears to be decreasing over years before 2000, after 2000 ,there is a trend of increasing. This may also imply that this time series is non-stationary.
+
+To verify this ,we plot the ACF and PACF(provided in the Appendix).The ACF of GDP and Imports show an exponential decay which confirms that both time series are not stationary.  
+
+```{r,include=FALSE}
+par(mfrow = c(1, 2))  
+acf(data_CAR$GDP, main = "ACF of GDP")
+acf(data_CAR$Imports, main = "ACF of Imports")
+```
+```{r,include=FALSE}
+par(mfrow = c(1, 2))  
+pacf(data_CAR$GDP, main = "PACF of GDP")
+pacf(data_CAR$Imports, main = "PACF of Imports")
+```
+<div>
+The PACF for both series have a large spike at lag 1 and then several non-zero values afterward. This decay imply that they have unit roots, which indicate that the value of today is highly dependent on the the past. 
+
+Since it is not stationary, we need to do the transformation or do first order differencing to stable the variance and get the stationary results.
+
+<div style="font-family: Arial; font-weight: bold; font-size: 24px;">
+3.Model Selection
+</div> 
+
+<div style="font-family: Arial; font-weight: bold; font-size: 20px;">
+3.1 Transformation
+</div> 
+
+<div style="font-family: Arial; font-weight: bold; font-size: 16px;">
+3.1.1 Log 
+</div> 
+
+```{r,include=FALSE}
+par(mfrow = c(1, 2))
+plot(data_CAR$Year, log(data_CAR$GDP), type="o",main="Log of GDP from 1960 to 2017",xlab = 'Time', ylab="Log of GDP")
+plot(data_CAR$Year,log(data_CAR$Imports),type="o",main="Log of Imports from 1960 to 2017",xlab = 'Time', ylab="Log of Imports")
+```
+```{r,include=FALSE}
+par(mfrow = c(1, 2))  
+acf(log(data_CAR$GDP), main = "Log of ACF of GDP")
+acf(log(data_CAR$Imports), main = "Log of ACF of Imports")
+```
+
+We do some transformation on the data. The first one we choose is a log transformation(provided in the Appendix). After applying the log transformation ,we can see that this is little improvement. The ACF still was exponentially decaying.Further,we will do more transformations.In order to find the best lambda to transform, we use the boxcox to choose the most suitable value ,the best value for both Imports and DGP is about 0.5. However,the result does not work very well.The data also have the same trend as the original data.The ACF and PACF also show the similar results as before.In this situation, we need to do further study to make the time series stationary.
+
+<div style="font-family: Arial; font-weight: bold; font-size: 16px;">
+3.1.2 Box-cox transformation
+</div> 
+
+```{r,include=FALSE}
+library(MASS)
+par(mfrow = c(1, 2)) 
+bc <- boxcox(GDP ~ Year, data = data_CAR)
+lambda_GDP <- bc$x[which.max(bc$y)]
+lambda_GDP
+ac <- boxcox(Imports ~ Year, data = data_CAR)
+lambda_Im <- ac$x[which.max(ac$y)]
+lambda_Im
+```
+```{r,include=FALSE}
+GDP_trans <- (data_CAR$GDP^lambda_GDP - 1) / lambda_GDP
+Im_trans <- (data_CAR$Imports^lambda_Im - 1) / lambda_Im
+plot(data_CAR$Year,GDP_trans, type="o",main=" Trans GDP from 1960 to 2017",xlab = 'Time', ylab="Trans GDP")
+plot(data_CAR$Year,Im_trans, type="o",main=" Trans Imports from 1960 to 2017",xlab = 'Time', ylab="Trans Imports")
+```
+
+```{r,include=FALSE}
+par(mfrow = c(1, 2))  
+acf(GDP_trans, main = "Trans of ACF of GDP")
+acf(Im_trans, main = "Trans of ACF of Imports")
+```
+<div style="font-family: Arial; font-weight: bold; font-size: 20px;">
+3.2 Differencing 
+</div> 
+
+From above, we know that the transformations does not work for the two times series.In order to resolve the non-stationary problem, we decided to do first order differencing. Differencing proved to be a better alternative because as shown in the plot , it stabilized the variance, removed the trend,and resolved the non-stationary issue.
+
+```{r}
+par(mfrow = c(1, 2))
+differ_GDP=diff(data_CAR$GDP)
+differ_Imports= diff(data_CAR$Imports)
+diff_Year <- data_CAR$Year[-1] 
+plot(diff_Year,differ_GDP, type="o",main=" GDP(Difference) from 1960 to 2017",xlab = 'Time', ylab="GDP(Differnece)")
+plot(diff_Year,differ_Imports, type="o",main=" Imports(Difference) from 1960 to 2017",xlab = 'Time', ylab="Imports(Difference)")
+```
+```{r}
+par(mfrow = c(1, 2))  
+acf(differ_GDP, main = " ACF of GDP(Difference)")
+acf(differ_Imports, main = "ACF of Imports(Difference)")
+```
+```{r,fig.pos="H"}
+par(mfrow = c(1, 2))  
+pacf(differ_GDP, main = " PACF of GDP(Difference)")
+pacf(differ_Imports, main = "PACF of Imports(Difference)")
+```
+<div>
+
+Because we do the box-cox to get the value about 0.5, it means that the value just change  the half and the trend does not change.Using the log we can see that the y value changes, so we want to ignore the lambda= 0.5,just consider the log transformation and see what happens when we do the difference to the log Transformation.Here is the result:
+```{r}
+par(mfrow = c(1, 2))
+differ_log_GDP=diff(log(data_CAR$GDP))
+differ_log_Imports=diff(log(data_CAR$Imports))
+diff_Year <- data_CAR$Year[-1] 
+plot(diff_Year,differ_log_GDP, type="o",main=" GDP(Difference+Log) from 1960 to 2017",xlab = 'Time', ylab="GDP(Differnece+Log)")
+plot(diff_Year,differ_log_Imports, type="o",main=" Imports(Difference+Log) from 1960 to 2017",xlab = 'Time', ylab="Imports(Difference+Log)")
+```
+
+From the picture,we can see that the log is better for the GDP than the original data , the variance is more stable.In this circumstances, we will use the log function and first order difference for the GDP data.As for the Imports data ,the results look similar, then we will  see the ACF to see if there is the difference .
+
+```{r,fig.pos="H"}
+par(mfrow = c(1, 2))  
+acf(differ_log_GDP, main = " ACF of GDP(Difference+Log)")
+acf(differ_log_Imports, main = "ACF of Imports(Difference+Log)")
+```
+<div>
+From the ACF and PACF, we can not see the difference with log or not, so we will use the original data for the Imports time series.
+
+```{r,fig.pos="H"}
+par(mfrow = c(1, 2))  
+pacf(differ_log_GDP, main = " PACF of GDP(Difference+Log)")
+pacf(differ_log_Imports, main = "PACF of Imports(Difference+Log)")
+```
+<div>
+After doing the first order differencing, we get improved ACF and PACF plots that follow what we expected.
+
+<div style="font-family: Arial; font-weight: bold; font-size: 20px;">
+3.4 Model-GDP
+</div> 
+
+For the GDP time series, We can see that the ACF tails off gradually and doesn't cut off sharply at any lag.This suggests no dominant MA (Moving Average) component with a low order.From the PACF plot, the PACF also does not cut off sharply at any specific lag (like lag 1 or 2).So it is not a pure AR.Therefore, we try a low-order ARIMA with both AR and MA components.we chose three parameters. ARIMA(1,1,0)-if AR dominates;ARIMA(0,1,1)-if MA dominates;ARIMA(2,1,2)-if both have slow decay.The results display in the appendix.
+
+```{r,include=FALSE}
+library(astsa)
+model_AR <- arima(log(data_CAR$GDP), order = c(1,1,0))
+model_AR
+model_AR_PARA=sarima(log(data_CAR$GDP),1,1,0)
+model_AR_PARA
+```
+<div>
+The p value is 0.7367.It is larger than 0.1,we accept the null hypothesis that the coefficient is equal to 0. After dropping the insignificant coefficients ,we can say that this model does not exist.The same things happens for the ARIMA(0,1,1).To try the ARIMA(2,1,2)model.The p value is equal to 0, to further test if this is the suitable model, we use the Box-Ljung test to make a further study .
+```{r,include=FALSE}
+model_MA <- arima(log(data_CAR$GDP), order = c(0,1,1))
+model_MA
+model_MA_PARA=sarima(log(data_CAR$GDP),0,1,1)
+model_MA_PARA
+```
+```{r,include=FALSE}
+model_MA_AR <- arima(data_CAR$GDP, order = c(2,1,2))
+model_MA_AR 
+model_MA_AR_PARA=sarima(log(data_CAR$GDP),2,1,2)
+model_MA_AR_PARA
+```
+```{r,include=FALSE}
+Box.test(residuals(model_MA_AR), lag = 10, type = "Ljung-Box")
+```
+<div>
+
+The null hypothesis of the Box-Ljung test about this model is that the residuals are white noise (i.e., no significant autocorrelation).A p-value of 0.9363 is very high, meaning we fail to reject the null hypothesis.The residuals do not show significant autocorrelation.So even though the AR and MA terms have very small p-values (i.e., statistically significant in the coefficient table), they might not be necessary.
+
+From the result we can see that there is no suitable model for GDP.Then we chose the model without the AR and MA term.The result follows:
+
+```{r,include=FALSE}
+model_MA_AR_none <- arima(log(data_CAR$GDP), order = c(0,1,0))
+model_MA_AR_none 
+model_MA_AR_none_PARA_=sarima(log(data_CAR$GDP),0,1,0)
+model_MA_AR_PARA
+```
+<div>
+
+From the result that of ARIMA(0,,1,0).The result does not work well .So there is no suitable model for the GDP.
+
+<div style="font-family: Arial; font-weight: bold; font-size: 20px;">
+3.5 Model-Imports
+</div> 
+
+As for another time series Import ,we will do the same thing.As we said before, the ACF and the PACF of the original data does similar like the log function after the first order differencing, so we chose the original data for simplicity instead of choosing the log function the data.From the ACF we can assume the ARIMA(0,1,2)might be appropriate because it is zero after the third lag.While from the PACF it looks like an ARIMA(2,1,0) model would be appropriate because the lags are zero after lag 2.Therefore we decided to fit both of these models. 
+
+We first fitted the ARIMA(0,1,2) model to estimate the coefficients(provided in the appedix). As a result, we got the following model:
+
+$$Z_t=-0.1157-0.0528 w_{t-1}-0.4622 w_{t-2} + w_t$$
+    
+For this model however, only -0.4622 is significant because the p-values 0.0019 is smaller than 0.1, so we reject the null hypothesis that the coefficient is equal to 0.
+The remaining terms have a p-value of 0.6 which is greater than 0.1 so they are not significant, we fail to reject the null hypothesis that the coefficient is equal to 0. After dropping the insignificant coefficients we get the following model:
+
+$$Z_t = -0.4622\, w_{t-2} + w_t$$
+
+```{r,include=FALSE}
+model_MA_Import <- arima(data_CAR$Imports, order = c(0,1,2))
+model_MA_Import
+model_MA_Import_PARA=sarima(data_CAR$Imports,0,1,2)
+model_MA_Import_PARA
+```
+
+Next, we fitted the ARIMA(2,1,0) model and got the following model as a result:
+
+  $$Z_t = -0.0531-0.1733Z_{t-1}-0.4105Z_{t-2} + w_t$$
+  
+<div>
+  In this case, only-0.4105 is significant because its p-values 0.0012 is smaller than 0.1, so we reject the null hypothesis that the coefficient is equal to 0. The rest has a p-value (0.1554 and 0.8558 respectively) greater than 0.1 so it is not significant, we fail to reject the null hypothesis that the coefficient is equal to 0. Therefore, we can drop the mean and now get that the actual ARIMA(2,1,0) model is:
+         $$Z_t = -0.4105Z_{t-2} + w_t$$
+  
+```{r,fig.pos="H"}
+model_AR_Import <- arima(data_CAR$Imports, order = c(2,1,0))
+model_AR_Import_PARA=sarima(data_CAR$Imports,2,1,0)
+model_AR_Import_PARA
+```
+<div style="font-family: Arial; font-weight: bold; font-size: 20px;"> 
+3.6 Final Model
+</div>
+
+To then figure out which model is better for Imports, we compared each model’s AIC and BIC using the table below: 
+
+$$\begin{array}{|c|c|c|}
+\hline
+ & \text{ARIMA(0,1,2)} & \text{ARIMA(2,1,0)} \\
+\hline
+\text{AIC} & {5.466496} & 5.461916 \\
+\hline
+\text{BIC} & {5.601924} & 5.597343  \\
+\hline
+\end{array}$$
+
+Since as shown in the table above, the ARIMA(2,1,0) model has a smaller AIC and BIC, we chose to use the ARIMA(2,1,0) model. 
+
+Once we selected the ARIMA(2,1,0) model, we conducted residual diagnostics and got the results shown above. From the Normal Q-Q plot we see that the residuals are normal as they follow a linear trend. In addition, from the ACF of the Residuals we see that all the lags are between the dashed lines which indicates that the residuals follow white noise. This is confirmed by the Ljung-Box test in which we see that all p-values are above the dashed line. This means that all p-values are greater than 0.1, which means that we fail to reject the null hypothesis that residuals follow white noise. Thus, we conclude that the residuals do follow white noise. These findings confirm that our model is appropriate and ready to be
+used for forecasting.
+
+<div style="font-family: Arial; font-weight: bold; font-size: 24px;">
+4.Forecast
+</div> 
+
+Since we selected ARIMA(2,1,0) as the more reasonable model, we used it to forecast the imports for the next 10 years. We obtained the point forecasts and the corresponding confidence intervals for the next 10 years up until 2027. 
+
+Moreover, for better understanding and visualization of the future trend of exports, we decided to plot the forecasts. The light blue area represents the 95% confidence interval, while the dark blue area represents the 80% confidence interval.
+```{r}
+library(forecast)
+forecast_AR_Import <- forecast(model_AR_Import, h = 10)
+autoplot(forecast(forecast_AR_Import))
+```
+```{r,include=FALSE}
+# 80% Confidence Intervals
+lower_80 <- forecast_AR_Import$lower[,1]  # 80% lower bound
+upper_80 <- forecast_AR_Import$upper[,1]  # 80% upper bound
+
+# 95% Confidence Intervals  
+lower_95 <- forecast_AR_Import$lower[,2]  # 95% lower bound
+upper_95 <- forecast_AR_Import$upper[,2]  # 95% upper bound
+
+# Point forecasts
+point_forecasts <- forecast_AR_Import$mean
+
+# Create comprehensive summary table
+forecast_years <- 2018:2027
+confidence_intervals <- data.frame(
+    Year = forecast_years,
+    Point_Forecast = as.numeric(point_forecasts),
+    Lower_80 = as.numeric(lower_80),
+    Upper_80 = as.numeric(upper_80),
+    Lower_95 = as.numeric(lower_95),
+    Upper_95 = as.numeric(upper_95),
+    Width_80 = as.numeric(upper_80 - lower_80),
+    Width_95 = as.numeric(upper_95 - lower_95)
+)
+
+print("Confidence Intervals for CAR Imports Forecast:")
+print(confidence_intervals)
+```
+```{r,include=FALSE}
+# Plot with confidence intervals highlighted
+library(ggplot2)
+
+# Convert to data frame for ggplot
+plot_data <- data.frame(
+    Year = forecast_years,
+    Forecast = as.numeric(point_forecasts),
+    Lower_80 = as.numeric(lower_80),
+    Upper_80 = as.numeric(upper_80),
+    Lower_95 = as.numeric(lower_95),
+    Upper_95 = as.numeric(upper_95)
+)
+
+ggplot(plot_data, aes(x = Year)) +
+    geom_ribbon(aes(ymin = Lower_95, ymax = Upper_95), alpha = 0.3, fill = "lightblue") +
+    geom_ribbon(aes(ymin = Lower_80, ymax = Upper_80), alpha = 0.5, fill = "blue") +
+    geom_line(aes(y = Forecast), color = "darkblue", size = 1.2) +
+    geom_point(aes(y = Forecast), color = "darkblue", size = 2) +
+    labs(title = "CAR Imports Forecast with Confidence Intervals",
+         subtitle = "Dark blue = 80% CI, Light blue = 95% CI",
+         x = "Year",
+         y = "Imports Value") +
+    theme_minimal() +
+    scale_x_continuous(breaks = 2018:2027)
+```
+
+
+<div style="font-family: Arial; font-weight: bold; font-size: 24px;">
+5.Conclusion
+</div> 
+As we can observe, there is an initial small increase. However, overall there is a more stabilized pattern in the forecasted imports for the next 10 years, from 2017 to 2027. This means that the Central African Republic should not expect any significant fluctuations in their imports for the upcoming years. From these forecasts, we see that the amount of imports is going to be more stable and predictable than in the past where they suffered significant increases and decreases. This is positive because the Central African
+Republic, which greatly depends on imports, will not suffer any important declines in imports. 
+The effects of GDP may due to many reasons that we can not predict that.
+## Appendix: R Code
+```{r ref.label=knitr::all_labels(), echo=TRUE, eval=TRUE}
+
+```
+
+
+
